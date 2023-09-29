@@ -26,7 +26,6 @@ pub const MAX_CODE_SIZE: usize = 0x6000;
 /// EIP-3860: Limit and meter initcode
 pub const MAX_INITCODE_SIZE: usize = 2 * MAX_CODE_SIZE;
 
-#[derive(Clone)]
 pub struct Interpreter {
     /// Instruction pointer.
     pub instruction_pointer: *const u8,
@@ -178,5 +177,28 @@ impl Interpreter {
                 self.return_range.end - self.return_range.start,
             ))
         }
+    }
+}
+
+impl Clone for Interpreter {
+    fn clone(&self) -> Self {
+        let mut interp = Self {
+            instruction_pointer: self.instruction_pointer,
+            return_range: self.return_range.clone(),
+            memory: self.memory.clone(),
+            stack: self.stack.clone(),
+            return_data_buffer: self.return_data_buffer.clone(),
+            contract: self.contract.clone(),
+            instruction_result: self.instruction_result,
+            is_static: self.is_static,
+            gas: self.gas.clone(),
+            #[cfg(feature = "memory_limit")]
+            memory_limit: self.memory_limit,
+        };
+
+        interp.instruction_pointer =
+            unsafe { self.contract.bytecode.as_ptr().add(self.program_counter()) };
+
+        interp
     }
 }

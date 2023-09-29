@@ -15,6 +15,8 @@ use crate::{db::Database, journaled_state::JournaledState, precompile, Inspector
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::{cmp::min, marker::PhantomData};
+use std::ops::DerefMut;
+use std::pin::Pin;
 use revm_interpreter::gas::initial_tx_gas;
 use revm_interpreter::MAX_CODE_SIZE;
 use revm_precompile::{Precompile, Precompiles};
@@ -27,16 +29,11 @@ pub struct EVMData<'a, DB: Database> {
     pub precompiles: Precompiles,
 
     pub execution_contexts: Vec<ExecutionContext>,
-    pub last_result: Option<InstructionResult>,
 }
 
 impl<'a, DB: Database> EVMData<'a, DB> {
     pub fn last_interpreter(&mut self) -> &mut Interpreter {
         &mut self.execution_contexts.last_mut().unwrap().interpreter
-    }
-
-    pub fn last_result(&self) -> Option<InstructionResult> {
-        self.last_result
     }
 }
 
@@ -77,7 +74,7 @@ struct CallResult {
 #[derive(Clone)]
 pub struct ExecutionContext {
     pub prepared_call_or_create: PreparedCallOrCreate,
-    pub interpreter: Box<Interpreter>,
+    pub interpreter: Pin<Box<Interpreter>>,
 }
 
 #[derive(Clone)]
@@ -145,6 +142,10 @@ pub trait Transact<DBError> {
     }
 }
 
+pub trait Resume<DBError> {
+    fn resume(&mut self) -> EVMResult<DBError>;
+}
+
 impl<'a, GSPEC: Spec, DB: Database, const INSPECT: bool> EVMImpl<'a, GSPEC, DB, INSPECT> {
     /// Load access list for berlin hardfork.
     ///
@@ -159,34 +160,38 @@ impl<'a, GSPEC: Spec, DB: Database, const INSPECT: bool> EVMImpl<'a, GSPEC, DB, 
         }
         Ok(())
     }
+}
 
-    pub fn resume(&mut self) -> EVMResult<DB::Error> {
+impl<'a, GSPEC: Spec, DB: Database, const INSPECT: bool> Resume<DB::Error>
+    for EVMImpl<'a, GSPEC, DB, INSPECT>
+{
+    fn resume(&mut self) -> EVMResult<DB::Error> {
         if self.data.execution_contexts.is_empty() {
             panic!("No execution context to resume");
         }
 
         let mut last_result: Option<(InstructionResult, Gas, Output)> = None;
 
-        while let Some(context) = self.data.execution_contexts.pop() {
-            let mut interpreter = context.interpreter;
-            let exit_reason = unsafe {
-                let ptr = interpreter.as_mut() as *const Interpreter as *mut Interpreter;
-
-                if INSPECT {
-                    (*ptr).run_inspect::<Self, GSPEC>(self)
-                } else {
-                    (*ptr).run::<Self, GSPEC>(self)
-                }
+        while !self.data.execution_contexts.is_empty() {
+            let context = unsafe {
+                let ptr = self.data.execution_contexts.last_mut().unwrap() as *mut ExecutionContext;
+                &mut *ptr
             };
 
-            match context.prepared_call_or_create {
+            let exit_reason = if INSPECT {
+                context.interpreter.run_inspect::<Self, GSPEC>(self)
+            } else {
+                context.interpreter.run::<Self, GSPEC>(self)
+            };
+
+            match &context.prepared_call_or_create {
                 PreparedCallOrCreate::Call(prepared_call, inputs) => {
                     let ret = CallResult {
                         result: exit_reason,
-                        gas: interpreter.gas,
-                        return_value: interpreter.return_value(),
+                        gas: context.interpreter.gas,
+                        return_value: context.interpreter.return_value(),
                     };
-                    let ret = self.post_call_inner(prepared_call.checkpoint, ret);
+                    let ret = self.post_call_inner(prepared_call.checkpoint.clone(), ret);
 
                     if INSPECT {
                         self.inspector.call_end(
@@ -199,14 +204,14 @@ impl<'a, GSPEC: Spec, DB: Database, const INSPECT: bool> EVMImpl<'a, GSPEC, DB, 
                     }
 
                     revm_interpreter::post_call::<GSPEC>(
-                        interpreter.as_mut(),
+                        context.interpreter.deref_mut(),
                         &inputs,
                         ret.result,
                         ret.gas,
                         ret.return_value.clone(),
                     );
 
-                    if self.data.execution_contexts.is_empty() {
+                    if self.data.execution_contexts.len() == 1 {
                         let output = Output::Call(ret.return_value);
                         last_result = Some((ret.result, ret.gas, output));
                     }
@@ -215,10 +220,10 @@ impl<'a, GSPEC: Spec, DB: Database, const INSPECT: bool> EVMImpl<'a, GSPEC, DB, 
                     let ret = CreateResult {
                         result: exit_reason,
                         created_address: Some(prepared_create.created_address),
-                        gas: interpreter.gas,
-                        return_value: interpreter.return_value(),
+                        gas: context.interpreter.gas,
+                        return_value: context.interpreter.return_value(),
                     };
-                    let ret = self.post_create_inner(prepared_create.checkpoint, ret);
+                    let ret = self.post_create_inner(prepared_create.checkpoint.clone(), ret);
 
                     if INSPECT {
                         self.inspector.create_end(
@@ -231,20 +236,24 @@ impl<'a, GSPEC: Spec, DB: Database, const INSPECT: bool> EVMImpl<'a, GSPEC, DB, 
                         );
                     }
 
+
                     revm_interpreter::post_create::<GSPEC>(
-                        interpreter.as_mut(),
+                        context.interpreter.deref_mut(),
                         ret.result,
                         ret.created_address,
                         ret.gas,
                         ret.return_value.clone(),
                     );
 
-                    if self.data.execution_contexts.is_empty() {
+                    if self.data.execution_contexts.len() == 1 {
                         let output = Output::Create(ret.return_value, ret.created_address);
                         last_result = Some((ret.result, ret.gas, output));
                     }
                 }
             }
+
+            println!("pop out");
+            self.data.execution_contexts.pop();
         }
 
         let (exit_reason, ret_gas, output) = last_result.unwrap();
@@ -401,7 +410,6 @@ impl<'a, GSPEC: Spec, DB: Database, const INSPECT: bool> EVMImpl<'a, GSPEC, DB, 
                 error: None,
                 precompiles,
                 execution_contexts: vec![],
-                last_result: None,
             },
             inspector,
             _phantomdata: PhantomData {},
@@ -647,8 +655,9 @@ impl<'a, GSPEC: Spec, DB: Database, const INSPECT: bool> EVMImpl<'a, GSPEC, DB, 
             prepared_create.gas.limit(),
             false,
         );
+
         self.data.execution_contexts.push(ExecutionContext {
-            interpreter,
+            interpreter: interpreter.into(),
             prepared_call_or_create: PreparedCallOrCreate::Create(prepared_create, inputs.clone()),
         });
 
@@ -933,7 +942,7 @@ impl<'a, GSPEC: Spec, DB: Database, const INSPECT: bool> EVMImpl<'a, GSPEC, DB, 
             let prepared = PreparedCallOrCreate::Call(prepared_call, inputs.clone());
 
             self.data.execution_contexts.push(ExecutionContext {
-                interpreter,
+                interpreter: interpreter.into(),
                 prepared_call_or_create: prepared,
             });
 
