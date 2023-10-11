@@ -516,7 +516,7 @@ pub fn call_inner<T, SPEC: Spec>(
                 .set(out_offset, &interpreter.return_data_buffer[..target_len]);
             push!(interpreter, U256::ZERO);
         }
-        InstructionResult::FatalExternalError | InstructionResult::ControlLeak | InstructionResult::ArbitraryExternalCallAddressBounded(_, _, _) | InstructionResult::ArbitraryExternalCallAddressUnbounded => {
+        InstructionResult::FatalExternalError | InstructionResult::ControlLeak | InstructionResult::ArbitraryExternalCallAddressBounded(_, _, _) | InstructionResult::AddressUnboundedStaticCall => {
             interpreter.instruction_result = reason;
         }
         _ => {
