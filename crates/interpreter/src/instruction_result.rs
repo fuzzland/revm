@@ -47,7 +47,8 @@ pub enum InstructionResult {
     // ItyFuzz specific error codes
     ControlLeak,
     ArbitraryExternalCallAddressBounded(B160, B160, U256),
-    ArbitraryExternalCallAddressUnbounded,
+    AddressUnboundedStaticCall,
+    FixedExternalCallAddressUnbounded,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -143,7 +144,8 @@ impl From<InstructionResult> for SuccessOrHalt {
             InstructionResult::FatalExternalError => Self::FatalExternalError,
             InstructionResult::ControlLeak => Self::FatalExternalError,
             InstructionResult::ArbitraryExternalCallAddressBounded(_, _, _) => Self::FatalExternalError,
-            InstructionResult::ArbitraryExternalCallAddressUnbounded => Self::FatalExternalError,
+            InstructionResult::AddressUnboundedStaticCall => Self::FatalExternalError,
+            InstructionResult::FixedExternalCallAddressUnbounded => Self::FatalExternalError,
         }
     }
 }
