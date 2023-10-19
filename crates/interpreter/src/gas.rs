@@ -98,7 +98,7 @@ impl Gas {
             return false;
         }
 
-        self.used += cost;
+        // self.used += cost;
         self.all_used_gas = all_used_gas;
         true
     }

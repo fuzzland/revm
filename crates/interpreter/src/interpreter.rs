@@ -4,6 +4,7 @@ mod shared_memory;
 mod stack;
 
 pub use analysis::BytecodeLocked;
+pub use contract::DummyContract;
 pub use contract::Contract;
 pub use shared_memory::{next_multiple_of_32, SharedMemory};
 pub use stack::{Stack, STACK_LIMIT};

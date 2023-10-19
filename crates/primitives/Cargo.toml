@@ -16,6 +16,8 @@ exclude = ["build.rs", "src/kzg/*.txt"]
 alloy-primitives = { version = "0.4", default-features = false, features = [
     "rlp",
 ] }
+arbitrary = { version = "1", features = ["derive"] }
+
 alloy-rlp = { version = "0.3", default-features = false, features = ["derive"] }
 hashbrown = "0.14"
 auto_impl = "1.1"

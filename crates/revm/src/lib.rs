@@ -24,6 +24,7 @@ compile_error!("`with-serde` feature has been renamed to `serde`.");
 pub(crate) const USE_GAS: bool = !cfg!(feature = "no_gas_measuring");
 
 pub type DummyStateDB = InMemoryDB;
+use db::{CacheDB, EmptyDB};
 #[cfg(feature = "std")]
 pub use db::{
     CacheState, DBBox, State, StateBuilder, StateDBBox, TransitionAccount, TransitionState,
@@ -32,7 +33,14 @@ pub use db::{Database, DatabaseCommit, DatabaseRef, InMemoryDB};
 pub use evm::{evm_inner, new, EVM};
 pub use evm_context::EVMData;
 pub use evm_impl::{EVMImpl, Transact, CALL_STACK_LIMIT};
+use interpreter::{DummyHost, Interpreter};
+use interpreter::opcode::make_instruction_table;
+pub use interpreter::{Contract, SharedMemory, DummyContract};
 pub use journaled_state::{is_precompile, JournalCheckpoint, JournalEntry, JournaledState};
+
+use primitives::SpecId::SHANGHAI;
+use primitives::{Env, ShanghaiSpec};
+use revm_precompile::Precompiles;
 
 // reexport `revm_precompiles`
 #[doc(inline)]
@@ -55,3 +63,24 @@ pub use inspector::{inspector_instruction, Inspector};
 pub use optimism::{L1BlockInfo, BASE_FEE_RECIPIENT, L1_BLOCK_CONTRACT, L1_FEE_RECIPIENT};
 
 pub use handler::Handler;
+
+
+pub fn test_harness(contract: DummyContract) {
+    let mut env: Env = Default::default(); 
+    let mut init_state = CacheDB::new(EmptyDB::default());
+    let mut host = DummyHost::new(env);
+    let instruction_table = make_instruction_table::<DummyHost, ShanghaiSpec>();
+    let mut shared_mem = SharedMemory::new_with_memory_limit(1024 * 1024);
+
+
+    // println!("contract: {:?}", contract);
+
+    let mut interpreter = Interpreter::new(
+        Box::new(contract.to_contract()),
+        100000,
+        false,
+        &mut shared_mem,
+    );
+
+    let res = interpreter.run(&instruction_table, &mut host);
+}

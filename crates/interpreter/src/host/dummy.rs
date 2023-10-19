@@ -116,7 +116,8 @@ impl Host for DummyHost {
 
     #[inline]
     fn selfdestruct(&mut self, _address: Address, _target: Address) -> Option<SelfDestructResult> {
-        panic!("Selfdestruct is not supported for this host")
+        // panic!("Selfdestruct is not supported for this host")
+        Some(SelfDestructResult::default())
     }
 
     #[inline]
@@ -125,7 +126,7 @@ impl Host for DummyHost {
         _inputs: &mut CreateInputs,
         _shared_memory: &mut SharedMemory,
     ) -> (InstructionResult, Option<Address>, Gas, Bytes) {
-        panic!("Create is not supported for this host")
+        (InstructionResult::Continue, None, Gas::default(), Bytes::default())
     }
 
     #[inline]
@@ -134,6 +135,6 @@ impl Host for DummyHost {
         _input: &mut CallInputs,
         _shared_memory: &mut SharedMemory,
     ) -> (InstructionResult, Gas, Bytes) {
-        panic!("Call is not supported for this host")
+        (InstructionResult::Continue, Gas::default(), Bytes::default())
     }
 }

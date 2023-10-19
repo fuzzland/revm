@@ -1,6 +1,7 @@
 use super::analysis::{to_analysed, BytecodeLocked};
 use crate::primitives::{Address, Bytecode, Bytes, Env, TransactTo, B256, U256};
 use crate::CallContext;
+use arbitrary;
 
 /// EVM contract information.
 #[derive(Clone, Debug, Default)]
@@ -19,6 +20,32 @@ pub struct Contract {
     /// Value send to contract.
     pub value: U256,
 }
+
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+pub struct DummyContract {
+    pub input: Bytes,
+    pub bytecode: Bytes,
+    pub hash: B256,
+    pub address: Address,
+    pub caller: Address,
+    pub value: U256,
+}
+
+
+impl DummyContract {
+    pub fn to_contract(&self) -> Contract {
+        Contract {
+            input: self.input.clone(),
+            bytecode: to_analysed(Bytecode::new_raw(self.bytecode.clone())).try_into().expect("it is analyzed"),
+            hash: self.hash,
+            address: self.address,
+            caller: self.caller,
+            value: self.value,
+        }
+    }
+}
+
 
 impl Contract {
     /// Instantiates a new contract by analyzing the given bytecode.
