@@ -92,15 +92,14 @@ pub fn not<T>(interpreter: &mut Interpreter, _host: &mut dyn Host<T>) {
 pub fn byte<T>(interpreter: &mut Interpreter, _host: &mut dyn Host<T>) {
     gas!(interpreter, gas::VERYLOW);
     pop_top!(interpreter, op1, op2);
-    let mut ret = U256::ZERO;
 
     let o1 = as_usize_saturated!(op1);
-    if o1 < 32 {
-        let o2 = &*op2;
-        ret = (o2 << (8 * o1)) >> (8 * 31);
-    }
-
-    *op2 = ret;
+    *op2 = if o1 < 32 {
+        // `31 - o1` because `byte` returns LE, while we want BE
+        U256::from(op2.byte(31 - o1))
+    } else {
+        U256::ZERO
+    };
 }
 
 pub fn shl<T, SPEC: Spec>(interpreter: &mut Interpreter, _host: &mut dyn Host<T>) {
