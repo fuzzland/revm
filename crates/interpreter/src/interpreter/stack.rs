@@ -88,8 +88,9 @@ impl Stack {
     pub unsafe fn pop_unsafe(&mut self) -> U256 {
         let mut len = self.data.len();
         len -= 1;
+        let res = *self.data.get_unchecked(len);
         self.data.set_len(len);
-        *self.data.get_unchecked(len)
+        res
     }
 
     #[inline(always)]
@@ -139,11 +140,12 @@ impl Stack {
     pub unsafe fn pop2_unsafe(&mut self) -> (U256, U256) {
         let mut len = self.data.len();
         len -= 2;
-        self.data.set_len(len);
-        (
+        let res = (
             *self.data.get_unchecked(len + 1),
             *self.data.get_unchecked(len),
-        )
+        );
+        self.data.set_len(len);
+        res
     }
 
     #[inline(always)]
@@ -154,12 +156,13 @@ impl Stack {
     pub unsafe fn pop3_unsafe(&mut self) -> (U256, U256, U256) {
         let mut len = self.data.len();
         len -= 3;
-        self.data.set_len(len);
-        (
+        let res = (
             *self.data.get_unchecked(len + 2),
             *self.data.get_unchecked(len + 1),
             *self.data.get_unchecked(len),
-        )
+        );
+        self.data.set_len(len);
+        res
     }
 
     #[inline(always)]
@@ -170,13 +173,14 @@ impl Stack {
     pub unsafe fn pop4_unsafe(&mut self) -> (U256, U256, U256, U256) {
         let mut len = self.data.len();
         len -= 4;
-        self.data.set_len(len);
-        (
+        let res = (
             *self.data.get_unchecked(len + 3),
             *self.data.get_unchecked(len + 2),
             *self.data.get_unchecked(len + 1),
             *self.data.get_unchecked(len),
-        )
+        );
+        self.data.set_len(len);
+        res
     }
 
     #[inline]
