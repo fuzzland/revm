@@ -27,7 +27,12 @@ pub fn return_not_found<T>(interpreter: &mut Interpreter, _host: &mut dyn Host<T
 }
 
 #[inline(always)]
-pub fn eval<T, H: Host<T>, S: Spec>(opcode: u8, interp: &mut Interpreter, host: &mut H, additional_data: &mut T) {
+pub fn eval<T, H: Host<T>, S: Spec>(
+    opcode: u8,
+    interp: &mut Interpreter,
+    host: &mut H,
+    additional_data: &mut T,
+) {
     match opcode {
         opcode::STOP => return_stop(interp, host),
         opcode::ADD => arithmetic::wrapped_add(interp, host),
@@ -161,6 +166,9 @@ pub fn eval<T, H: Host<T>, S: Spec>(opcode: u8, interp: &mut Interpreter, host: 
         opcode::GASLIMIT => host_env::gaslimit(interp, host),
         opcode::SLOAD => host::sload::<T, S>(interp, host),
         opcode::SSTORE => host::sstore::<T, S>(interp, host),
+        opcode::TLOAD => host::tload::<T, S>(interp, host),
+        opcode::TSTORE => host::tstore::<T, S>(interp, host),
+        opcode::MCOPY => memory::mcopy(interp, host),
         opcode::GAS => system::gas(interp, host),
         opcode::LOG0 => host::log::<T, 0>(interp, host),
         opcode::LOG1 => host::log::<T, 1>(interp, host),

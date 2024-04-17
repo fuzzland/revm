@@ -50,6 +50,7 @@ impl From<&str> for SpecId {
             "London" => SpecId::LONDON,
             "Merge" => SpecId::MERGE,
             "Shanghai" => SpecId::SHANGHAI,
+            "Cancun" => Self::CANCUN,
             _ => SpecId::LATEST,
         }
     }
@@ -99,4 +100,5 @@ spec!(LONDON, LondonSpec);
 spec!(MERGE, MergeSpec);
 // MERGE_EOF is pending EVM change
 spec!(SHANGHAI, ShanghaiSpec);
+spec!(CANCUN, CancunSpec);
 spec!(LATEST, LatestSpec);

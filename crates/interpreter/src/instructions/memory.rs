@@ -1,3 +1,5 @@
+use std::cmp::max;
+
 use crate::{gas, interpreter::Interpreter, primitives::U256, Host, InstructionResult};
 
 pub fn mload<T>(interpreter: &mut Interpreter, _host: &mut dyn Host<T>) {
@@ -34,4 +36,26 @@ pub fn mstore8<T>(interpreter: &mut Interpreter, _host: &mut dyn Host<T>) {
 pub fn msize<T>(interpreter: &mut Interpreter, _host: &mut dyn Host<T>) {
     gas!(interpreter, gas::BASE);
     push!(interpreter, U256::from(interpreter.memory.effective_len()));
+}
+
+// EIP-5656: MCOPY - Memory copying instruction
+pub fn mcopy<T>(interpreter: &mut Interpreter, _host: &mut dyn Host<T>) {
+    // check!(interpreter, SPEC::enabled(CANCUN));
+    pop!(interpreter, dst, src, len);
+
+    // into usize or fail
+    let len = as_usize_or_fail!(interpreter, len);
+    // deduce gas
+    gas_or_fail!(interpreter, gas::verylowcopy_cost(len as u64));
+    if len == 0 {
+        return;
+    }
+
+    let dst = as_usize_or_fail!(interpreter, dst);
+    let src = as_usize_or_fail!(interpreter, src);
+    // resize memory
+    memory_resize!(interpreter, max(dst, src), len);
+    // copy memory in place
+    // interpreter.shared_memory.copy(dst, src, len);
+    interpreter.memory.copy(dst, src, len);
 }

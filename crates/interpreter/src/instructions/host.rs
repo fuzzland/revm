@@ -179,6 +179,29 @@ pub fn sstore<T, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut dyn Host<
     refund!(interpreter, gas::sstore_refund::<SPEC>(original, old, new));
 }
 
+/// EIP-1153: Transient storage opcodes
+/// Store value to transient storage
+pub fn tstore<T, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut dyn Host<T>) {
+    check!(interpreter, SPEC::enabled(CANCUN));
+    check_staticcall!(interpreter);
+    gas!(interpreter, gas::WARM_STORAGE_READ_COST);
+
+    pop!(interpreter, index, value);
+
+    host.tstore(interpreter.contract.address, index, value);
+}
+
+/// EIP-1153: Transient storage opcodes
+/// Load value from transient storage
+pub fn tload<T, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut dyn Host<T>) {
+    check!(interpreter, SPEC::enabled(CANCUN));
+    gas!(interpreter, gas::WARM_STORAGE_READ_COST);
+
+    pop_top!(interpreter, index);
+
+    *index = host.tload(interpreter.contract.address, *index);
+}
+
 pub fn log<T, const N: u8>(interpreter: &mut Interpreter, host: &mut dyn Host<T>) {
     check_staticcall!(interpreter);
 
@@ -232,7 +255,7 @@ pub fn selfdestruct<T, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut dyn
 pub fn create<T, const IS_CREATE2: bool, SPEC: Spec>(
     interpreter: &mut Interpreter,
     host: &mut dyn Host<T>,
-    additional_data: &mut T
+    additional_data: &mut T,
 ) {
     check_staticcall!(interpreter);
     if IS_CREATE2 {
@@ -291,7 +314,8 @@ pub fn create<T, const IS_CREATE2: bool, SPEC: Spec>(
         gas_limit,
     };
 
-    let (return_reason, address, gas, return_data) = host.create(&mut create_input, additional_data);
+    let (return_reason, address, gas, return_data) =
+        host.create(&mut create_input, additional_data);
     interpreter.return_data_buffer = match return_reason {
         // Save data to return data buffer if the create reverted
         return_revert!() => return_data,
@@ -322,19 +346,35 @@ pub fn create<T, const IS_CREATE2: bool, SPEC: Spec>(
     }
 }
 
-pub fn call<T, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut dyn Host<T>, additional_data: &mut T) {
+pub fn call<T, SPEC: Spec>(
+    interpreter: &mut Interpreter,
+    host: &mut dyn Host<T>,
+    additional_data: &mut T,
+) {
     call_inner::<T, SPEC>(interpreter, CallScheme::Call, host, additional_data);
 }
 
-pub fn call_code<T, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut dyn Host<T>, additional_data: &mut T) {
+pub fn call_code<T, SPEC: Spec>(
+    interpreter: &mut Interpreter,
+    host: &mut dyn Host<T>,
+    additional_data: &mut T,
+) {
     call_inner::<T, SPEC>(interpreter, CallScheme::CallCode, host, additional_data);
 }
 
-pub fn delegate_call<T, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut dyn Host<T>, additional_data: &mut T) {
+pub fn delegate_call<T, SPEC: Spec>(
+    interpreter: &mut Interpreter,
+    host: &mut dyn Host<T>,
+    additional_data: &mut T,
+) {
     call_inner::<T, SPEC>(interpreter, CallScheme::DelegateCall, host, additional_data);
 }
 
-pub fn static_call<T, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut dyn Host<T>, additional_data: &mut T) {
+pub fn static_call<T, SPEC: Spec>(
+    interpreter: &mut Interpreter,
+    host: &mut dyn Host<T>,
+    additional_data: &mut T,
+) {
     call_inner::<T, SPEC>(interpreter, CallScheme::StaticCall, host, additional_data);
 }
 
@@ -342,7 +382,7 @@ pub fn call_inner<T, SPEC: Spec>(
     interpreter: &mut Interpreter,
     scheme: CallScheme,
     host: &mut dyn Host<T>,
-    additional_data: &mut T
+    additional_data: &mut T,
 ) {
     match scheme {
         CallScheme::DelegateCall => check!(interpreter, SPEC::enabled(HOMESTEAD)), // EIP-7: DELEGATECALL
@@ -489,7 +529,11 @@ pub fn call_inner<T, SPEC: Spec>(
 
     // Call host to interuct with target contract
     let (reason, gas, return_data) = host.call(
-        &mut call_input, interpreter, (out_offset, out_len), additional_data);
+        &mut call_input,
+        interpreter,
+        (out_offset, out_len),
+        additional_data,
+    );
 
     interpreter.return_data_buffer = return_data;
 
@@ -516,7 +560,10 @@ pub fn call_inner<T, SPEC: Spec>(
                 .set(out_offset, &interpreter.return_data_buffer[..target_len]);
             push!(interpreter, U256::ZERO);
         }
-        InstructionResult::FatalExternalError | InstructionResult::ControlLeak | InstructionResult::ArbitraryExternalCallAddressBounded(_, _, _) | InstructionResult::AddressUnboundedStaticCall => {
+        InstructionResult::FatalExternalError
+        | InstructionResult::ControlLeak
+        | InstructionResult::ArbitraryExternalCallAddressBounded(_, _, _)
+        | InstructionResult::AddressUnboundedStaticCall => {
             interpreter.instruction_result = reason;
         }
         _ => {

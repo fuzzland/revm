@@ -1,11 +1,16 @@
 use crate::primitives::{hash_map::Entry, Bytecode, Bytes, HashMap, U256};
-use crate::{primitives::{Env, Log, B160, B256, KECCAK_EMPTY}, CallInputs, CreateInputs, Gas, Host, InstructionResult, Interpreter, SelfDestructResult, BytecodeLocked};
+use crate::{
+    primitives::{Env, Log, B160, B256, KECCAK_EMPTY},
+    BytecodeLocked, CallInputs, CreateInputs, Gas, Host, InstructionResult, Interpreter,
+    SelfDestructResult,
+};
 use alloc::vec::Vec;
 use std::sync::Arc;
 
 pub struct DummyHost {
     pub env: Env,
     pub storage: HashMap<U256, U256>,
+    pub transient_storage: HashMap<U256, U256>,
     pub log: Vec<Log>,
 }
 
@@ -14,6 +19,7 @@ impl DummyHost {
         Self {
             env,
             storage: HashMap::new(),
+            transient_storage: HashMap::new(),
             log: Vec::new(),
         }
     }
@@ -32,7 +38,7 @@ impl Host<u32> for DummyHost {
         &mut self,
         _interp: &mut Interpreter,
         _ret: InstructionResult,
-        _: &mut u32
+        _: &mut u32,
     ) -> InstructionResult {
         InstructionResult::Continue
     }
@@ -88,6 +94,19 @@ impl Host<u32> for DummyHost {
         Some((U256::ZERO, present, value, is_cold))
     }
 
+    #[inline]
+    fn tload(&mut self, _address: B160, index: U256) -> U256 {
+        self.transient_storage
+            .get(&index)
+            .copied()
+            .unwrap_or_default()
+    }
+
+    #[inline]
+    fn tstore(&mut self, _address: B160, index: U256, value: U256) {
+        self.transient_storage.insert(index, value);
+    }
+
     fn log(&mut self, address: B160, topics: Vec<B256>, data: Bytes) {
         self.log.push(Log {
             address,
@@ -108,7 +127,13 @@ impl Host<u32> for DummyHost {
         panic!("Create is not supported for this host")
     }
 
-    fn call(&mut self, _input: &mut CallInputs, _: &mut Interpreter, output_info: (usize, usize), _: &mut u32) -> (InstructionResult, Gas, Bytes) {
+    fn call(
+        &mut self,
+        _input: &mut CallInputs,
+        _: &mut Interpreter,
+        output_info: (usize, usize),
+        _: &mut u32,
+    ) -> (InstructionResult, Gas, Bytes) {
         panic!("Call is not supported for this host")
     }
 }

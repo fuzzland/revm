@@ -34,6 +34,7 @@ pub const ACCESS_LIST_STORAGE_KEY: u64 = 1900;
 pub const COLD_SLOAD_COST: u64 = 2100;
 pub const COLD_ACCOUNT_ACCESS_COST: u64 = 2600;
 pub const WARM_STORAGE_READ_COST: u64 = 100;
+pub const WARM_SSTORE_RESET: u64 = SSTORE_RESET - COLD_SLOAD_COST;
 
 /// EIP-3860 : Limit and meter initcode
 pub const INITCODE_WORD_COST: u64 = 2;

@@ -110,6 +110,18 @@ impl Memory {
             *i = 0;
         }
     }
+
+    /// Copies elements from one part of the memory to another part of itself.
+    ///
+    /// # Panics
+    ///
+    /// Panics on out of bounds.
+    #[inline]
+    #[cfg_attr(debug_assertions, track_caller)]
+    pub fn copy(&mut self, dst: usize, src: usize, len: usize) {
+        // self.context_memory_mut().copy_within(src..src + len, dst);
+        self.data.copy_within(src..src + len, dst);
+    }
 }
 
 /// Rounds up `x` to the closest multiple of 32. If `x % 32 == 0` then `x` is returned.

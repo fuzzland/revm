@@ -1,19 +1,24 @@
 mod dummy_host;
 
 use crate::primitives::Bytecode;
-use crate::{primitives::{Bytes, Env, B160, B256, U256}, CallInputs, CreateInputs, Gas, InstructionResult, Interpreter, SelfDestructResult, BytecodeLocked};
+use crate::{
+    primitives::{Bytes, Env, B160, B256, U256},
+    BytecodeLocked, CallInputs, CreateInputs, Gas, InstructionResult, Interpreter,
+    SelfDestructResult,
+};
 pub use alloc::vec::Vec;
-use std::sync::Arc;
 pub use dummy_host::DummyHost;
+use std::sync::Arc;
 
 /// EVM context host.
 pub trait Host<T> {
-    fn step(&mut self, interpreter: &mut Interpreter, additional_data: &mut T) -> InstructionResult;
+    fn step(&mut self, interpreter: &mut Interpreter, additional_data: &mut T)
+        -> InstructionResult;
     fn step_end(
         &mut self,
         interpreter: &mut Interpreter,
         ret: InstructionResult,
-        additional_data: &mut T
+        additional_data: &mut T,
     ) -> InstructionResult;
 
     fn env(&mut self) -> &mut Env;
@@ -38,6 +43,10 @@ pub trait Host<T> {
         index: U256,
         value: U256,
     ) -> Option<(U256, U256, U256, bool)>;
+    /// Get the transient storage value of `address` at `index`.
+    fn tload(&mut self, address: B160, index: U256) -> U256;
+    /// Set the transient storage value of `address` at `index`.
+    fn tstore(&mut self, address: B160, index: U256, value: U256);
     /// Create a log owned by address with given topics and data.
     fn log(&mut self, address: B160, topics: Vec<B256>, data: Bytes);
     /// Mark an address to be deleted, with funds transferred to target.
@@ -46,8 +55,14 @@ pub trait Host<T> {
     fn create(
         &mut self,
         inputs: &mut CreateInputs,
-        additional_data: &mut T
+        additional_data: &mut T,
     ) -> (InstructionResult, Option<B160>, Gas, Bytes);
     /// Invoke a call operation.
-    fn call(&mut self, input: &mut CallInputs, interp: &mut Interpreter, output_info: (usize, usize), additional_data: &mut T) -> (InstructionResult, Gas, Bytes);
+    fn call(
+        &mut self,
+        input: &mut CallInputs,
+        interp: &mut Interpreter,
+        output_info: (usize, usize),
+        additional_data: &mut T,
+    ) -> (InstructionResult, Gas, Bytes);
 }

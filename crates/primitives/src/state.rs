@@ -2,6 +2,9 @@ use crate::{Bytecode, B160, B256, KECCAK_EMPTY, U256};
 use bitflags::bitflags;
 use hashbrown::HashMap;
 
+/// Structure used for EIP-1153 transient storage.
+pub type TransientStorage = HashMap<(B160, U256), U256>;
+
 #[derive(Debug, Clone, Eq, PartialEq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Account {
